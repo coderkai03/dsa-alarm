@@ -23,7 +23,7 @@ async function generateQuestions(topics: string[]): Promise<Question[]> {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    const prompt = `Generate 3 multiple choice questions about ${topics.join(', ')}.
+    const prompt = `Generate 3 short multiple choice questions about ${topics.join(', ')}.
 Return ONLY a JSON array with this exact format:
 [{
   "question": "What is the time complexity of bubble sort?",
@@ -89,7 +89,7 @@ async function generateStudySuggestions(topics: string[], answers: Answer[]): Pr
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    const prompt = `Generate 3 study suggestions based on this quiz performance:
+    const prompt = `Generate 3 short study suggestions based on this quiz performance:
 - Topics: ${topics.join(', ')}
 - Score: ${answers.filter(a => a.isCorrect).length} correct out of ${answers.length}
 
