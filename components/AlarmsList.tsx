@@ -1,19 +1,20 @@
 import { StyleSheet, Image, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ScrollView, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { GitHubProfile } from '@/types/github-profile';
 import { Alarm } from '@/types/alarm';
 import SpaceBackground from './SpaceBackground';
 import { LinearGradient } from 'expo-linear-gradient';
+import CountdownTimer from './CountdownTimer';
 
 interface AlarmsListProps {
   setShowAlarmList: (showAlarmList: boolean) => void;
   alarms: Alarm[];
+  setAlarms: React.Dispatch<React.SetStateAction<Alarm[]>>;
 }
 
-export default function AlarmsList({ setShowAlarmList, alarms }: AlarmsListProps) {
+export default function AlarmsList({ setShowAlarmList, alarms, setAlarms }: AlarmsListProps) {
   const router = useRouter();
   const params = useLocalSearchParams<{ profile: string }>();
   const profile = params.profile ? JSON.parse(params.profile) as GitHubProfile : null;
@@ -129,6 +130,26 @@ export default function AlarmsList({ setShowAlarmList, alarms }: AlarmsListProps
                         </ThemedText>
                       ))}
                     </View>
+                  </View>
+                )}
+
+{alarm.countdownEndTime && (
+                  <View style={styles.countdownContainer}>
+                    <ThemedText style={styles.sectionTitle}>Time Remaining</ThemedText>
+                    <CountdownTimer 
+                      endTime={alarm.countdownEndTime} 
+                      selectedTopics={alarm.topics}
+                      onComplete={() => {
+                        // Update alarm status when countdown completes
+                        setAlarms(prevAlarms => 
+                          prevAlarms.map(a => 
+                            a.id === alarm.id 
+                              ? { ...a, isActive: false } 
+                              : a
+                          )
+                        );
+                      }} 
+                    />
                   </View>
                 )}
               </View>
@@ -341,5 +362,11 @@ const styles = StyleSheet.create({
     margin: 4,
     fontSize: 12,
     color: 'white',
+  },
+  countdownContainer: {
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
   },
 });

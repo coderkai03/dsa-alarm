@@ -14,6 +14,7 @@ export default function AlarmsScreen() {
         <AlarmsList
           setShowAlarmList={setShowAlarmList}
           alarms={alarms}
+          setAlarms={setAlarms}
         />
       ) : (
         <SetAlarm

@@ -5,4 +5,6 @@ export interface Alarm {
   isActive: boolean;
   daysActive: string[];
   topics: string[];
+  countdownSeconds?: number;
+  countdownEndTime?: number;
 }

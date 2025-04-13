@@ -1,5 +1,5 @@
 import { useState, useEffect, SetStateAction, Dispatch } from 'react';
-import { StyleSheet, TouchableOpacity, View, Modal, Platform, Animated, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, Modal, Platform, Animated, ScrollView, TextInput, ToastAndroid, Alert } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import SpaceBackground from './SpaceBackground';
@@ -8,6 +8,7 @@ import { Audio } from 'expo-av';
 import { Checkbox } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { Alarm } from '@/types/alarm';
+
 interface SetAlarmProps {
   setShowAlarmList: (showAlarmList: boolean) => void;
   setAlarms: Dispatch<SetStateAction<Alarm[]>>
@@ -15,22 +16,12 @@ interface SetAlarmProps {
 
 export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [alarmTime, setAlarmTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isAlarmActive, setIsAlarmActive] = useState(false);
-  const [tempAlarmTime, setTempAlarmTime] = useState(new Date());
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [showDays, setShowDays] = useState(false);
-  const [selectedDays, setSelectedDays] = useState<{[key: string]: boolean}>({
-    Sunday: false,
-    Monday: false,
-    Tuesday: false,
-    Wednesday: false,
-    Thursday: false,
-    Friday: false,
-    Saturday: false
-  });
-  const [showTopics, setShowTopics] = useState(false);
+  const [countdownMinutes, setCountdownMinutes] = useState('');
+  const [countdownSeconds, setCountdownSeconds] = useState('');
+  const [alarmLabel, setAlarmLabel] = useState('');
   const [selectedTopics, setSelectedTopics] = useState<{[key: string]: boolean}>({
     'Arrays & Strings': false,
     'Linked Lists': false,
@@ -43,7 +34,7 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
     'Greedy Algorithms': false,
     'Backtracking': false
   });
-  const [alarmLabel, setAlarmLabel] = useState('');
+  const [showTopics, setShowTopics] = useState(false);
 
   useEffect(() => {
     return sound
@@ -53,79 +44,35 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
       : undefined;
   }, [sound]);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      
-      if (alarmTime && now >= alarmTime && !isAlarmActive) {
-        setIsAlarmActive(true);
-        playAlarmSound();
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [alarmTime, isAlarmActive]);
-
-  async function playAlarmSound() {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        require('@/assets/alarm.mp3'),
-        { shouldPlay: true, isLooping: true }
-      );
-      setSound(sound);
-    } catch (error) {
-      console.error('Error playing alarm sound:', error);
-    }
-  }
-
-  const stopAlarm = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      await sound.unloadAsync();
-      setSound(null);
-    }
-    setIsAlarmActive(false);
-  };
-
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    if (selectedTime) {
-      setTempAlarmTime(selectedTime);
-    }
-  };
-
-  const confirmAlarmTime = () => {
-    const now = new Date();
-    const alarm = new Date(now);
-    alarm.setHours(tempAlarmTime.getHours());
-    alarm.setMinutes(tempAlarmTime.getMinutes());
-    alarm.setSeconds(0);
+  const setupCountdownTimer = () => {
+    const minutes = parseInt(countdownMinutes) || 0;
+    const seconds = parseInt(countdownSeconds) || 0;
+    const totalSeconds = minutes * 60 + seconds;
     
-    if (alarm <= now) {
-      alarm.setDate(alarm.getDate() + 1);
+    if (totalSeconds <= 0) {
+      Platform.OS === 'android' 
+        ? ToastAndroid.show('Please enter a valid time', ToastAndroid.SHORT)
+        : Alert.alert('Invalid Time', 'Please enter a valid time');
+      return;
     }
+
+    const now = new Date();
+    const endTime = now.getTime() + totalSeconds * 1000;
 
     const newAlarm: Alarm = {
       id: Date.now().toString(),
-      time: alarm.toLocaleTimeString(),
-      label: alarmLabel || 'Alarm',
+      time: new Date(endTime).toLocaleTimeString(),
+      label: alarmLabel || 'Countdown Timer',
       isActive: true,
-      daysActive: Object.keys(selectedDays).filter(day => selectedDays[day]),
-      topics: Object.keys(selectedTopics).filter(topic => selectedTopics[topic])
-    }
-    console.log('newAlarm', newAlarm);
+      daysActive: [],
+      topics: Object.keys(selectedTopics).filter(topic => selectedTopics[topic]),
+      countdownSeconds: totalSeconds,
+      countdownEndTime: endTime
+    };
 
-    setAlarmTime(alarm);
+    setAlarms(prevAlarms => [...prevAlarms, newAlarm]);
     setShowTimePicker(false);
     setShowAlarmList(true);
-    setAlarms(prevAlarms => [...prevAlarms, newAlarm]);
-  };
-
-  const toggleDay = (day: string) => {
-    setSelectedDays(prev => ({
-      ...prev,
-      [day]: !prev[day]
-    }));
   };
 
   const toggleTopic = (topic: string) => {
@@ -133,19 +80,6 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
       ...prev,
       [topic]: !prev[topic]
     }));
-  };
-
-  const formatAlarmTime = () => {
-    if (!alarmTime) return '';
-    const selectedDaysList = Object.entries(selectedDays)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([day]) => day);
-    
-    if (selectedDaysList.length === 0) {
-      return `${alarmTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (No days selected)`;
-    }
-    
-    return `${alarmTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${selectedDaysList.join(', ')})`;
   };
 
   return (
@@ -158,32 +92,15 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
           </ThemedText>
         </View>
 
-        {alarmTime && (
-          <View style={styles.alarmInfo}>
-            <ThemedText style={styles.alarmText}>
-              Alarm set for: {formatAlarmTime()}
-            </ThemedText>
-          </View>
-        )}
-
         <View style={styles.buttonContainer}>
-          {isAlarmActive ? (
-            <TouchableOpacity 
-              style={[styles.button, styles.stopButton]}
-              onPress={stopAlarm}
-            >
-              <ThemedText style={styles.buttonText}>Stop Alarm</ThemedText>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.button}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <ThemedText style={styles.buttonText}>
-                {alarmTime ? 'Change Alarm' : 'Set Alarm'}
-              </ThemedText>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <ThemedText style={styles.buttonText}>
+              Set Countdown Timer
+            </ThemedText>
+          </TouchableOpacity>
         </View>
 
         <Modal
@@ -196,80 +113,34 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
               <TextInput
                 value={alarmLabel}
                 onChangeText={setAlarmLabel}
-                placeholder="Enter alarm label"
+                placeholder="Enter timer label"
                 placeholderTextColor="#666"
                 style={styles.labelInput}
               />
-              <DateTimePicker
-                value={tempAlarmTime}
-                mode="time"
-                is24Hour={false}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleTimeChange}
-                textColor="#ffffff"
-                themeVariant="dark"
-              />
               
-              <TouchableOpacity 
-                style={styles.dropdownHeader}
-                onPress={() => {
-                  setShowDays(!showDays);
-                  if (!showDays) setShowTopics(false);
-                }}
-              >
-                <ThemedText style={styles.daysTitle}>Repeat on</ThemedText>
-                <Ionicons 
-                  name={showDays ? "chevron-up" : "chevron-down"} 
-                  size={20} 
-                  color="#ffffff" 
+              <View style={styles.countdownContainer}>
+                <TextInput
+                  style={styles.countdownInput}
+                  value={countdownMinutes}
+                  onChangeText={setCountdownMinutes}
+                  placeholder="Minutes"
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
                 />
-              </TouchableOpacity>
-
-              {showDays && (
-                <View style={styles.daysContainer}>
-                  <ScrollView style={styles.scrollView}>
-                    {Object.keys(selectedDays).map((day) => (
-                      <TouchableOpacity
-                        key={day}
-                        style={[
-                          styles.dayRow,
-                          selectedDays[day] && styles.selectedDayRow
-                        ]}
-                        onPress={() => toggleDay(day)}
-                        activeOpacity={0.7}
-                      >
-                        <Checkbox
-                          status={selectedDays[day] ? 'checked' : 'unchecked'}
-                          onPress={() => {}}
-                          color="#ffffff"
-                          uncheckedColor="#ffffff"
-                          theme={{
-                            colors: {
-                              primary: '#ffffff',
-                              onSurface: '#ffffff',
-                              surface: 'transparent',
-                              background: 'transparent',
-                            }
-                          }}
-                        />
-                        <ThemedText style={[
-                          styles.dayText,
-                          selectedDays[day] && styles.selectedDayText
-                        ]}>
-                          {day}
-                        </ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+                <ThemedText style={styles.countdownSeparator}>:</ThemedText>
+                <TextInput
+                  style={styles.countdownInput}
+                  value={countdownSeconds}
+                  onChangeText={setCountdownSeconds}
+                  placeholder="Seconds"
+                  placeholderTextColor="#666"
+                  keyboardType="numeric"
+                />
+              </View>
 
               <TouchableOpacity 
                 style={styles.dropdownHeader}
-                onPress={() => {
-                  setShowTopics(!showTopics);
-                  if (!showTopics) setShowDays(false);
-                }}
+                onPress={() => setShowTopics(!showTopics)}
               >
                 <ThemedText style={styles.daysTitle}>Topics</ThemedText>
                 <Ionicons 
@@ -327,9 +198,11 @@ export default function SetAlarm({ setShowAlarmList, setAlarms }: SetAlarmProps)
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.modalButton, styles.confirmButton]}
-                  onPress={confirmAlarmTime}
+                  onPress={setupCountdownTimer}
                 >
-                  <ThemedText style={styles.modalButtonText}>Set Alarm</ThemedText>
+                  <ThemedText style={styles.modalButtonText}>
+                    Start Countdown
+                  </ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -376,20 +249,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255, 255, 255, .5)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
-  },
-  alarmInfo: {
-    backgroundColor: 'rgba(26, 26, 46, 0.8)',
-    padding: 10,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  alarmText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    textShadowColor: 'rgba(255, 255, 255, 0.3)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 5,
   },
   buttonContainer: {
     width: '100%',
@@ -454,9 +313,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  stopButton: {
-    backgroundColor: 'rgba(255, 59, 48, 0.7)',
-  },
   dropdownHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -513,5 +369,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  countdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  countdownInput: {
+    width: 80,
+    height: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: 10,
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  countdownSeparator: {
+    fontSize: 24,
+    color: '#fff',
+    marginHorizontal: 10,
   },
 });
