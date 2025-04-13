@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ThemedText } from '../components/ThemedText';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import SpaceBackground from '@/components/SpaceBackground';
 
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
@@ -231,32 +232,27 @@ export default function Questions() {
     
     return (
       <View style={styles.container}>
-        <ThemedText style={styles.resultTitle}>Quiz Complete!</ThemedText>
-        
-        <View style={styles.scoreContainer}>
-          <ThemedText style={styles.scoreText}>
-            Score: {correctAnswers}/{totalQuestions} ({percentage}%)
-          </ThemedText>
-        </View>
-
-        <View style={styles.suggestionsContainer}>
-          <ThemedText style={styles.suggestionsTitle}>Study Suggestions:</ThemedText>
-          {studySuggestions.map((suggestion, index) => (
-            <ThemedText key={index} style={styles.suggestion}>
-              • {suggestion}
+        <SpaceBackground />
+        <View style={styles.content}>
+          <ThemedText style={styles.resultTitle}>Quiz Complete!</ThemedText>
+          
+          <View style={styles.scoreContainer}>
+            <ThemedText style={styles.scoreText}>
+              Score: {correctAnswers}/{totalQuestions} ({percentage}%)
             </ThemedText>
-          ))}
-        </View>
+          </View>
 
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => {
-            // Navigate back to topics selection
-            router.back();
-          }}
-        >
-          <ThemedText style={styles.retryButtonText}>Try Another Quiz</ThemedText>
-        </TouchableOpacity>
+          <View style={styles.suggestionsContainer}>
+            <ThemedText style={styles.suggestionsTitle}>Study Suggestions:</ThemedText>
+            <ScrollView style={styles.suggestionsScroll}>
+              {studySuggestions.map((suggestion, index) => (
+                <ThemedText key={index} style={styles.suggestion}>
+                  • {suggestion}
+                </ThemedText>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
       </View>
     );
   };
@@ -264,7 +260,10 @@ export default function Questions() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ThemedText>Loading questions...</ThemedText>
+        <SpaceBackground />
+        <View style={styles.content}>
+          <ThemedText>Loading questions...</ThemedText>
+        </View>
       </View>
     );
   }
@@ -283,21 +282,18 @@ export default function Questions() {
 
   return (
     <View style={styles.container}>
-      <ThemedText style={styles.questionText}>
-        {currentQuestion.question}
-      </ThemedText>
-
-      <View style={styles.optionsContainer}>
+      <SpaceBackground />
+      <View style={styles.content}>
+        <ThemedText style={styles.questionText}>
+          {currentQuestion.question}
+        </ThemedText>
         {currentQuestion.options.map((option, index) => (
           <TouchableOpacity
             key={index}
             style={[
               styles.optionButton,
-              selectedAnswer === index && (
-                index === currentQuestion.correctAnswer
-                  ? styles.correctAnswer
-                  : styles.wrongAnswer
-              )
+              selectedAnswer !== null && index === currentQuestion.correctAnswer && styles.correctAnswer,
+              selectedAnswer !== null && index === selectedAnswer && index !== currentQuestion.correctAnswer && styles.wrongAnswer
             ]}
             onPress={() => handleAnswer(index)}
             disabled={selectedAnswer !== null}
@@ -306,10 +302,6 @@ export default function Questions() {
           </TouchableOpacity>
         ))}
       </View>
-
-      <ThemedText style={styles.progress}>
-        Question {currentQuestionIndex + 1} of {questions.length}
-      </ThemedText>
     </View>
   );
 }
@@ -317,8 +309,13 @@ export default function Questions() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    flex: 1,
     padding: 20,
-    justifyContent: 'center',
+    paddingTop: 80,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   questionText: {
     fontSize: 20,
@@ -326,16 +323,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   optionsContainer: {
-    gap: 15,
+    width: '100%',
+    gap: 50,
+    paddingBottom: 35,
   },
   optionButton: {
+    width: '100%',
+    minHeight: 60,
     padding: 15,
     borderRadius: 10,
-    backgroundColor: '#2c2c2c',
+    gap: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   optionText: {
     fontSize: 16,
+    textAlign: 'center',
   },
   correctAnswer: {
     backgroundColor: '#2e7d32',
@@ -356,20 +360,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scoreContainer: {
-    backgroundColor: '#2c2c2c',
+    backgroundColor: 'rgba(26, 26, 46, 0.8)',
     padding: 20,
     borderRadius: 10,
-    marginBottom: 30,
+    marginBottom: 10,
+    marginTop: 0,
   },
   scoreText: {
     fontSize: 20,
     textAlign: 'center',
   },
   suggestionsContainer: {
-    backgroundColor: '#2c2c2c',
+    backgroundColor: 'rgba(26, 26, 46, 0.8)',
     padding: 20,
     borderRadius: 10,
-    marginBottom: 30,
+    position: 'absolute',
+    bottom: 130,
+    left: 20,
+    right: 20,
+    maxHeight: '60%',
+  },
+  suggestionsScroll: {
+    flex: 1,
   },
   suggestionsTitle: {
     fontSize: 18,
